@@ -1,0 +1,5 @@
+# VM Hub — Caddy obtém SSL automaticamente
+
+SEU_DOMINIO {
+    reverse_proxy localhost:8765
+}

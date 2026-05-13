@@ -1,0 +1,7 @@
+# VM Hub — Labels para adicionar ao container no seu docker-compose
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.vm-hub.rule=Host(`SEU_DOMINIO`)"
+  - "traefik.http.routers.vm-hub.entrypoints=websecure"
+  - "traefik.http.routers.vm-hub.tls.certresolver=letsencrypt"
+  - "traefik.http.services.vm-hub.loadbalancer.server.port=8765"

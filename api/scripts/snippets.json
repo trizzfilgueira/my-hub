@@ -1,0 +1,29 @@
+[
+  {
+    "id": "limpeza",
+    "title": "Limpeza",
+    "description": "RAM cache, APT e logs antigos",
+    "icon": "🧹",
+    "button_label": "Executar",
+    "script": "limpeza.sh",
+    "output_type": "structured"
+  },
+  {
+    "id": "seguranca",
+    "title": "Segurança",
+    "description": "Updates pendentes & status SSH",
+    "icon": "🛡️",
+    "button_label": "Verificar",
+    "script": "seguranca.sh",
+    "output_type": "structured"
+  },
+  {
+    "id": "swap",
+    "title": "Reset Swap",
+    "description": "Libera memória swap acumulada",
+    "icon": "🔄",
+    "button_label": "Executar",
+    "script": "swap.sh",
+    "output_type": "structured"
+  }
+]

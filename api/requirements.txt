@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+psutil
+docker
+python-jose[cryptography]
+bcrypt
