@@ -289,6 +289,10 @@ case "${1:-}" in
     ;;
 
   reset-pwd)
+    if [ "$(id -u)" != "0" ]; then
+      echo "Este comando requer privilégios. Use: sudo vm-hub reset-pwd"
+      exit 1
+    fi
     read -rsp "Nova senha (mín. 8 caracteres): " PWD1; echo ""
     [ ${#PWD1} -lt 8 ] && echo "Senha muito curta." && exit 1
     read -rsp "Confirmar nova senha: " PWD2; echo ""

@@ -1,21 +1,18 @@
 #!/bin/bash
-# Speedtest — usa speedtest-go se disponível, senão Cloudflare multi-curl
+# Speedtest — usa speedtest-go (instalado no container via Dockerfile)
 
 DL_MBPS="0"
 UL_MBPS="0"
 
-UL_URL="https://speed.cloudflare.com/__up"
-
-# ── Tenta speedtest-go ─────────────────────────────────────────────────────────
 if command -v speedtest-go &>/dev/null; then
-    OUTPUT=$(speedtest-go 2>/dev/null)
+    OUTPUT=$(speedtest-go --thread 8 2>/dev/null)
     DL_RAW=$(printf '%s' "$OUTPUT" | grep -i "Download:" | grep -oP '[0-9]+\.[0-9]+(?=Mbps)' | head -1)
     UL_RAW=$(printf '%s' "$OUTPUT" | grep -i "Upload:"   | grep -oP '[0-9]+\.[0-9]+(?=Mbps)' | head -1)
     [ -n "$DL_RAW" ] && DL_MBPS="$DL_RAW"
     [ -n "$UL_RAW" ] && UL_MBPS="$UL_RAW"
 fi
 
-# ── Fallback: Cloudflare com 4 conexões paralelas ──────────────────────────────
+# Fallback via Cloudflare se speedtest-go falhar ou não estiver disponível
 if [ "$DL_MBPS" = "0" ]; then
     TMPDIR_SPD=$(mktemp -d)
 
@@ -27,14 +24,16 @@ if [ "$DL_MBPS" = "0" ]; then
     wait
     DL_MBPS=$(cat "${TMPDIR_SPD}"/dl_* 2>/dev/null | awk '{s+=$1} END{printf "%.1f", s*8/1000000}')
     rm -rf "$TMPDIR_SPD"
+fi
 
+if [ "$UL_MBPS" = "0" ]; then
     UL_TMPFILE=$(mktemp)
     python3 -c "import sys,os; sys.stdout.buffer.write(os.urandom(52428800))" > "$UL_TMPFILE" 2>/dev/null
     UL_SPEED=$(curl -s -X POST \
         -H "Content-Type: application/octet-stream" \
         --data-binary "@$UL_TMPFILE" \
         --max-time 20 \
-        "$UL_URL" \
+        "https://speed.cloudflare.com/__up" \
         -w "%{speed_upload}\n" \
         -o /dev/null 2>/dev/null || echo "0")
     rm -f "$UL_TMPFILE"
