@@ -10,9 +10,11 @@ RUN ARCH=$(uname -m) && \
       aarch64|arm64) SPD_ARCH="arm64" ;; \
       *) SPD_ARCH="amd64" ;; \
     esac && \
-    curl -fsSL "https://github.com/showwin/speedtest-go/releases/download/v1.6.0/speedtest-go_1.6.0_Linux_${SPD_ARCH}.tar.gz" \
-    | tar -xz -C /usr/local/bin speedtest-go && \
-    chmod +x /usr/local/bin/speedtest-go
+    curl -fsSL -o /tmp/speedtest.tar.gz \
+      "https://github.com/showwin/speedtest-go/releases/download/v1.6.0/speedtest-go_1.6.0_Linux_${SPD_ARCH}.tar.gz" && \
+    tar -xzf /tmp/speedtest.tar.gz -C /usr/local/bin speedtest-go && \
+    chmod +x /usr/local/bin/speedtest-go && \
+    rm /tmp/speedtest.tar.gz
 
 WORKDIR /app
 

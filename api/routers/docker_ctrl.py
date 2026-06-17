@@ -110,15 +110,78 @@ def start_container(name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _parse_port_bindings(pb: dict) -> dict | None:
+    if not pb:
+        return None
+    result = {}
+    for port, bindings in pb.items():
+        if bindings:
+            result[port] = [{"HostIp": b.get("HostIp", ""), "HostPort": b.get("HostPort", "")} for b in bindings]
+        else:
+            result[port] = None
+    return result
+
+
 @router.post("/{name}/pull", dependencies=[Depends(require_auth)])
 def pull_and_restart(name: str):
     try:
         client = _docker()
         c = client.containers.get(name)
+
         image_name = c.image.tags[0] if c.image.tags else None
-        if image_name:
-            client.images.pull(image_name)
-        c.restart(timeout=10)
+        if not image_name:
+            raise HTTPException(status_code=400, detail=f"Container '{name}' não tem tag de imagem — atualize manualmente.")
+
+        # Pull new image from Docker Hub (may take a while for large images)
+        client.images.pull(image_name)
+
+        # Save container config before removing it
+        attrs = c.attrs
+        hc = attrs.get("HostConfig", {})
+        cfg = attrs.get("Config", {})
+        container_name = c.name
+
+        # Stop and remove so we can recreate with the new image
+        c.stop(timeout=15)
+        c.remove()
+
+        # Recreate container with identical config but fresh image layers
+        new_c = client.api.create_container(
+            image=image_name,
+            name=container_name,
+            environment=cfg.get("Env"),
+            volumes=list(cfg.get("Volumes") or {}).keys() or None,
+            ports=list(cfg.get("ExposedPorts") or {}).keys() or None,
+            host_config=client.api.create_host_config(
+                binds=hc.get("Binds"),
+                port_bindings=_parse_port_bindings(hc.get("PortBindings")),
+                restart_policy=hc.get("RestartPolicy"),
+                network_mode=hc.get("NetworkMode"),
+                volumes_from=hc.get("VolumesFrom"),
+                cap_add=hc.get("CapAdd"),
+                cap_drop=hc.get("CapDrop"),
+                dns=hc.get("Dns"),
+                extra_hosts=hc.get("ExtraHosts"),
+                privileged=hc.get("Privileged", False),
+                devices=hc.get("Devices"),
+                shm_size=hc.get("ShmSize"),
+                ulimits=hc.get("Ulimits"),
+                log_config=hc.get("LogConfig"),
+            ),
+        )
+        client.api.start(new_c["Id"])
+
+        # Reconnect to any additional networks beyond the primary one
+        primary_net = hc.get("NetworkMode", "")
+        for net_name, net_cfg in (attrs.get("NetworkSettings") or {}).get("Networks", {}).items():
+            if net_name == primary_net:
+                continue
+            try:
+                aliases = (net_cfg or {}).get("Aliases") or []
+                client.networks.get(net_name).connect(new_c["Id"], aliases=aliases or None)
+            except Exception:
+                pass
+
         return {"ok": True, "name": name, "action": "pull"}
     except NotFound:
         raise HTTPException(status_code=404, detail=f"Container '{name}' não encontrado")
